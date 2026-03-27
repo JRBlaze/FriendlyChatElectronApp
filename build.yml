@@ -1,9 +1,10 @@
-name: Build Friendly Chat
+name: Build and Release Friendly Chat
 
 on:
   push:
-    branches: [ main, master ]
-  workflow_dispatch:
+    tags:
+      - 'v*'         # Triggers on version tags like v1.0.0, v1.1.0 etc
+  workflow_dispatch: # Also allows manual trigger from Actions tab
 
 jobs:
   build:
@@ -32,48 +33,22 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Build (Windows)
+      - name: Build and publish (Windows)
         if: matrix.os == 'windows-latest'
-        run: npm run build:win
+        run: npx electron-builder --win --x64 --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
-      - name: Build (Mac)
+      - name: Build and publish (Mac)
         if: matrix.os == 'macos-latest'
-        run: npm run build:mac
+        run: npx electron-builder --mac --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
-      - name: Build (Linux)
+      - name: Build and publish (Linux)
         if: matrix.os == 'ubuntu-latest'
-        run: npm run build:linux
+        run: npx electron-builder --linux --x64 --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload Windows artifact
-        if: matrix.os == 'windows-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: Friendly-Chat-Windows
-          path: dist/*.exe
-          if-no-files-found: ignore
-
-      - name: Upload Mac artifact
-        if: matrix.os == 'macos-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: Friendly-Chat-Mac
-          path: dist/*.dmg
-          if-no-files-found: ignore
-
-      - name: Upload Linux artifact
-        if: matrix.os == 'ubuntu-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: Friendly-Chat-Linux
-          path: |
-            dist/*.AppImage
-            dist/*.deb
-          if-no-files-found: ignore
