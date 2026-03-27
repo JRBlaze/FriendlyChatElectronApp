@@ -1,22 +1,19 @@
-// Friendly Chat - Kick OAuth Proxy
+// Friendly Chat - Proxy Server
 // Deploy this to Railway, Render, or any Node.js host.
-// Set environment variables KICK_CLIENT_ID, KICK_CLIENT_SECRET, and ALLOWED_ORIGIN.
+// Set environment variables: KICK_CLIENT_ID, KICK_CLIENT_SECRET, YOUTUBE_API_KEY
 //
-// Railway: railway.app (free tier, deploy in ~2 minutes)
+// Railway: railway.app
 //   1. Create account at railway.app
-//   2. New Project > Deploy from GitHub repo (or paste this file)
+//   2. New Project > GitHub Repository
 //   3. Set environment variables in the Railway dashboard
-//   4. Copy your deployment URL (e.g. https://friendly-chat-proxy.up.railway.app)
-//   5. Put that URL in the app's config.json as "kick_proxy_url"
-//
-// Render: render.com (free tier)
-//   Same process — New Web Service > deploy > set env vars > copy URL
+//   4. Copy your deployment URL and put it in the app's config.json as "proxy_url"
 
 const http = require('http');
 
 const KICK_CLIENT_ID     = process.env.KICK_CLIENT_ID     || '';
 const KICK_CLIENT_SECRET = process.env.KICK_CLIENT_SECRET || '';
-const ALLOWED_ORIGIN     = process.env.ALLOWED_ORIGIN     || '*'; // set to your app's origin if desired
+const YOUTUBE_API_KEY    = process.env.YOUTUBE_API_KEY    || '';
+const ALLOWED_ORIGIN     = process.env.ALLOWED_ORIGIN     || '*';
 const PORT               = process.env.PORT               || 3000;
 
 if(!KICK_CLIENT_ID || !KICK_CLIENT_SECRET) {
@@ -50,10 +47,16 @@ const server = http.createServer(async (req, res) => {
   }
 
   // Returns the Kick Client ID (safe to expose — it's a public identifier)
-  // The redirect_uri must match what's registered in the Kick developer console
   if(url.pathname === '/kick-config' && req.method === 'GET') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ client_id: KICK_CLIENT_ID }));
+    return;
+  }
+
+  // Returns the YouTube API key (stored securely as an env var, never in the repo)
+  if(url.pathname === '/youtube-config' && req.method === 'GET') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ api_key: YOUTUBE_API_KEY }));
     return;
   }
 
