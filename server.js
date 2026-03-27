@@ -29,18 +29,13 @@ function start(CFG) {
   const PROXY_URL  = (CFG.proxy_url || CFG.kick_proxy_url || '').replace(/\/$/, '');
   const HAS_PROXY  = PROXY_URL && PROXY_URL !== 'YOUR_PROXY_URL_HERE';
 
-  // Pre-fetch credentials from proxy at startup
-  let kickClientId  = '';
-  let youtubeApiKey = CFG.youtube?.api_key || '';
+  // Pre-fetch Kick client ID from proxy at startup
+  let kickClientId = '';
   if(HAS_PROXY) {
     fetch(`${PROXY_URL}/kick-config`)
       .then(r => r.ok ? r.json() : null)
       .then(d => { if(d?.client_id) kickClientId = d.client_id; })
       .catch(e => console.warn('Could not reach proxy for Kick config:', e.message));
-    fetch(`${PROXY_URL}/youtube-config`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if(d?.api_key) youtubeApiKey = d.api_key; })
-      .catch(e => console.warn('Could not reach proxy for YouTube config:', e.message));
   }
 
   const server = http.createServer(async (req, res) => {
@@ -56,7 +51,7 @@ function start(CFG) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
         twitch:  { client_id: CFG.twitch?.client_id  || '' },
-        youtube: { client_id: CFG.youtube?.client_id || '', api_key: youtubeApiKey },
+        youtube: { client_id: CFG.youtube?.client_id || '' },
         kick:    { client_id: kickClientId },
         has_kick_proxy: HAS_PROXY,
       }));

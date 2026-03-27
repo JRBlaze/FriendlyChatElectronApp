@@ -1372,12 +1372,12 @@ async function fetchKickHistory(chatroomId) {
 }
 
 function connectYouTube(input) {
-  if(YOUTUBE_API_KEY === 'YOUR_YOUTUBE_API_KEY') {
-    addSys('YouTube: add your API key to the YOUTUBE_API_KEY line near the top of the script');
-    return;
-  }
   if(YOUTUBE_CLIENT_ID === 'YOUR_YOUTUBE_CLIENT_ID') {
     addSys('YouTube: add your Client ID to the YOUTUBE_CLIENT_ID line near the top of the script');
+    return;
+  }
+  if(!S.tokens.youtube && !localStorage.getItem('youtube_access_token')) {
+    addSys('YouTube: please connect your YouTube account first by clicking Accounts.');
     return;
   }
 
@@ -1413,10 +1413,19 @@ function connectYouTube(input) {
 
   addSys(`Connecting to YouTube: ${videoId}...`);
 
-  fetch(`https://www.googleapis.com/youtube/v3/videos?part=liveStreamingDetails,snippet&id=${videoId}&key=${YOUTUBE_API_KEY}`)
+  const token = S.tokens.youtube || localStorage.getItem('youtube_access_token') || '';
+  const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+  const keyParam = (!token && YOUTUBE_API_KEY) ? `&key=${YOUTUBE_API_KEY}` : '';
+
+  fetch(`https://www.googleapis.com/youtube/v3/videos?part=liveStreamingDetails,snippet&id=${videoId}${keyParam}`, { headers })
     .then(r => r.json())
     .then(data => {
       if(data.error) {
+        // If unauthenticated and no API key, prompt user to connect
+        if(data.error.code === 401 || data.error.code === 403) {
+          addSys('YouTube: please connect your YouTube account to join channels.');
+          return;
+        }
         addSys(`YouTube API error: ${data.error.message}`);
         return;
       }
@@ -1455,7 +1464,8 @@ function pollYouTube(videoId, liveChatId, apiKey, pageToken) {
     maxResults: '200'
   });
   if(pageToken) params.set('pageToken', pageToken);
-  if(!useOAuth) params.set('key', apiKey);
+  // Only use API key if no OAuth token available
+  if(!useOAuth && YOUTUBE_API_KEY) params.set('key', YOUTUBE_API_KEY);
 
   const url = `https://www.googleapis.com/youtube/v3/liveChat/messages?${params.toString()}`;
   const headers = useOAuth ? { 'Authorization': `Bearer ${token}` } : {};
