@@ -8,7 +8,7 @@ on:
 jobs:
   build:
     strategy:
-      fail-fast: false  # Don't cancel other builds if one fails
+      fail-fast: false
       matrix:
         os: [windows-latest, macos-latest, ubuntu-latest]
 
@@ -35,22 +35,45 @@ jobs:
       - name: Build (Windows)
         if: matrix.os == 'windows-latest'
         run: npm run build:win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
 
       - name: Build (Mac)
         if: matrix.os == 'macos-latest'
         run: npm run build:mac
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
 
       - name: Build (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: npm run build:linux
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload artifacts
+      - name: Upload Windows artifact
+        if: matrix.os == 'windows-latest'
         uses: actions/upload-artifact@v4
         with:
-          name: friendly-chat-${{ matrix.os }}
+          name: Friendly-Chat-Windows
+          path: dist/*.exe
+          if-no-files-found: ignore
+
+      - name: Upload Mac artifact
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Friendly-Chat-Mac
+          path: dist/*.dmg
+          if-no-files-found: ignore
+
+      - name: Upload Linux artifact
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Friendly-Chat-Linux
           path: |
-            dist/*.exe
-            dist/*.dmg
             dist/*.AppImage
             dist/*.deb
           if-no-files-found: ignore

@@ -12,6 +12,7 @@
     "build:all":   "electron-builder --win --mac --linux"
   },
   "build": {
+    "publish": "never",
     "appId": "com.friendlychat.app",
     "productName": "Friendly Chat",
     "directories": {
