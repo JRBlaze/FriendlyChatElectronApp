@@ -2,6 +2,10 @@
   "name": "friendly-chat",
   "version": "1.0.0",
   "description": "Multi-platform stream chat merger for Twitch, YouTube and Kick",
+  "author": {
+    "name": "JRBlaze",
+    "email": "jrblaze@friendly-chat.app"
+  },
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -39,7 +43,7 @@
       "category": "public.app-category.utilities"
     },
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": ["AppImage"],
       "icon": "icon.png",
       "category": "Network"
     },

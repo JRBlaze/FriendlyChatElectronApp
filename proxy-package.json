@@ -1,0 +1,12 @@
+{
+  "name": "friendly-chat-kick-proxy",
+  "version": "1.0.0",
+  "description": "Kick OAuth proxy for Friendly Chat",
+  "main": "proxy-server.js",
+  "scripts": {
+    "start": "node proxy-server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
