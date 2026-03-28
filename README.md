@@ -3,7 +3,7 @@
 A desktop app that merges live chat from Twitch, YouTube, and Kick into one unified window. Built with Electron.
 
 ![Platform Support](https://img.shields.io/badge/platform-Windows%20%7C%20Mac%20%7C%20Linux-blue)
-![Version](https://img.shields.io/badge/version-1.0.3-green)
+![Version](https://img.shields.io/badge/version-1.0.0-green)
 
 ---
 
@@ -31,6 +31,16 @@ Grab the latest installer for your platform from the [Releases](../../releases) 
 - **Linux** — `Friendly-Chat-x.x.x.AppImage`
 
 No setup required — just install and launch.
+
+### Mac Installation Note
+
+If you see **"Friendly Chat is damaged and can't be opened"** when launching on Mac, this is due to Apple's Gatekeeper blocking unsigned apps. To fix it, open **Terminal** and run:
+
+```
+xattr -cr /Applications/Friendly\ Chat.app
+```
+
+Then try opening the app again. Alternatively go to **System Settings → Privacy & Security** and click **Open Anyway** if the option appears there.
 
 ---
 
