@@ -1509,9 +1509,23 @@ function pollYouTube(videoId, liveChatId, apiKey, pageToken) {
         shown++;
       });
 
-      const delay = Math.max(data.pollingIntervalMillis || 1000, 1000);
+      // Use YouTube's recommended interval but enforce a 15 second minimum
+      // to ensure the daily 10,000 unit quota lasts at least 8 hours.
+      // Math: 10,000 units ÷ 5 units/poll = 2,000 polls max
+      //       8 hours = 28,800 seconds ÷ 2,000 polls = 14.4s minimum
+      const delay = Math.max(data.pollingIntervalMillis || 15000, 15000);
       S.intervals.youtube = setTimeout(
-        () => pollYouTube(videoId, liveChatId, apiKey, data.nextPageToken || pageToken),
+        () => {
+          // Pause polling when window is hidden to save quota
+          if(document.hidden) {
+            S.intervals.youtube = setTimeout(
+              () => pollYouTube(videoId, liveChatId, apiKey, data.nextPageToken || pageToken),
+              5000
+            );
+          } else {
+            pollYouTube(videoId, liveChatId, apiKey, data.nextPageToken || pageToken);
+          }
+        },
         delay
       );
     })
