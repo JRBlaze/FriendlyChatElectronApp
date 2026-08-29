@@ -20,7 +20,13 @@ Friendly Chat lets you watch and participate in Twitch, Kick and YouTube chats i
 - Kick's full emote list loads the moment you join, and its global set is cached so it is there before you join anything
 - Sound and/or desktop notification when your name is mentioned, each toggled separately
 - Tab autocomplete for emotes (`:emote`) and mentions (`@username`), plus a searchable emote picker
-- Click a username to reply, timeout, ban, or delete messages
+- Hover any emote — in the feed, the picker or the autocomplete — for a large preview with its name and where it came from
+- `/me` renders as an action, not as the raw `ACTION` wrapper Twitch sends it in
+- Replies say what they are answering, quoted above the reply with its emotes intact
+- First messages are marked, on the platform's own say-so rather than a guess
+- Usernames wear the colour their owner picked, nudged until it is readable on whichever theme you are using
+- `@mentions` of other people are drawn in that person's own colour, once this feed has seen them speak
+- Click a username to reply, timeout, ban, or delete messages — a reply threads onto the original on Twitch rather than only @mentioning them
 - Adjustable font size that saves between sessions
 - Light, dark, and match-system theme modes
 - Tells you when a new release is on GitHub and installs it for you
@@ -64,6 +70,11 @@ Alerts are rate limited to one every 1.2 seconds, and channel history replayed o
 ## Emotes
 
 Every emote a platform exposes is fetched up front when you join, so the picker and `:name` autocomplete are complete immediately — nothing waits for somebody to post an emote first.
+
+Emotes are drawn everywhere a viewer typed one, not only in ordinary chat messages: the message under
+a resub, the text of an announcement and the original quoted above a reply all go through the same
+renderer a chat message does. The summary wrapped around an event does not — so a display name that
+happens to spell an emote name stays a name rather than turning into a picture.
 
 Kick needs a little care because its emote endpoint sits behind Cloudflare. Friendly Chat asks for it through a hidden Electron window that carries the app's own session (so a channel you subscribe to returns its subscriber emotes), falls back to the local server in browser mode, tries both of Kick's emote paths, and retries a couple of times if the first request is turned away. Kick's global and emoji sets are cached separately from channel sets, so they are restored at startup with no channel joined. Collecting emotes from live messages still exists, but only as a last resort.
 

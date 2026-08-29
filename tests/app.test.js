@@ -1099,7 +1099,9 @@ describe('app: kick emotes are available without being posted', () => {
     assertEqual(a.$$('#feed .msg').length, 0);
 
     a.click('#emote-btn');
-    const names = a.$$('#emote-results .emote-grid-item').map(el => el.getAttribute('title')).sort();
+    // From the image's alt: the cell carries no title any more, because the
+    // hover preview names the emote at a size worth looking at.
+    const names = a.$$('#emote-results .emote-grid-item img').map(el => el.getAttribute('alt')).sort();
     assertEqual(names, ['kickGlobal', 'kickSmile', 'streamerHype', 'streamerLove']);
     assertIncludes(a.$('#emote-results').textContent, 'Kick Channel (2)');
     assertIncludes(a.$('#emote-results').textContent, 'Kick Global (1)');
@@ -1445,5 +1447,163 @@ describe('app: update notification', () => {
     a.click('#set-clear-skip');
     assertEqual(a.api().settings.skippedVersion, '');
     assert(!a.$('#update-banner').classList.contains('hidden'), 'the banner should come back');
+  });
+});
+
+// The CTCP byte `/me` arrives wrapped in, built rather than written literally so
+// the file stays plain ASCII.
+const CTCP_BYTE = String.fromCharCode(1);
+
+async function joinKick(a, channel = 'kickstreamer') {
+  stubKick(a);
+  a.type('#ci-kick', channel);
+  a.click('#jb-kick');
+  await a.tick(3);
+  const ws = a.ws.byUrl('pusher.com').pop();
+  ws.emit(JSON.stringify({ event: 'pusher:connection_established', data: '{}' }));
+  await a.tick(2);
+  return ws;
+}
+
+describe('app: twitch message quality', () => {
+  it('renders /me as an action rather than printing the wrapper', async () => {
+    const a = await boot();
+    a.click('.skip-btn');
+    const ws = await joinTwitch(a);
+    ws.emit(`@display-name=Bob :b!b@b.tmi.twitch.tv PRIVMSG #somestreamer :${CTCP_BYTE}ACTION waves${CTCP_BYTE}\r\n`);
+    a.flush();
+    const row = a.$('#feed .msg[data-platform="twitch"]');
+    assertEqual(row.querySelector('.m-body').textContent, 'waves');
+    assertIncludes(row.className, 'action');
+    assertEqual(row.querySelector('.m-colon'), null);
+  });
+
+  it('keeps emote positions right inside an action', async () => {
+    const a = await boot();
+    a.click('.skip-btn');
+    const ws = await joinTwitch(a);
+    // The positions Twitch sends are counted from the text inside the wrapper,
+    // so unwrapping late would leave every one of them eight characters out.
+    ws.emit(`@display-name=Bob;emotes=25:0-4 :b!b@b.tmi.twitch.tv PRIVMSG #somestreamer :${CTCP_BYTE}ACTION Kappa waves${CTCP_BYTE}\r\n`);
+    a.flush();
+    assertEqual(a.$('#feed .msg .chat-emote').getAttribute('alt'), 'Kappa');
+  });
+
+  it('marks a first message on twitch\'s own flag, and only then', async () => {
+    const a = await boot();
+    a.click('.skip-btn');
+    const ws = await joinTwitch(a);
+    ws.emit('@first-msg=1;display-name=New :n!n@n.tmi.twitch.tv PRIVMSG #somestreamer :hi\r\n');
+    ws.emit('@first-msg=0;display-name=Old :o!o@o.tmi.twitch.tv PRIVMSG #somestreamer :hi\r\n');
+    a.flush();
+    const rows = a.$$('#feed .msg[data-platform="twitch"]');
+    assertIncludes(rows[0].className, 'first-msg');
+    assertEqual(rows[0].querySelector('.first-tag').textContent, 'FIRST MESSAGE');
+    assertNotIncludes(rows[1].className, 'first-msg');
+  });
+
+  it('draws the message a reply is answering above it', async () => {
+    const a = await boot();
+    a.click('.skip-btn');
+    const ws = await joinTwitch(a);
+    ws.emit('@display-name=Bob;reply-parent-display-name=Alice;reply-parent-msg-id=p1;'
+      + 'reply-parent-msg-body=what\\stime\\sis\\sit '
+      + ':b!b@b.tmi.twitch.tv PRIVMSG #somestreamer :in a minute\r\n');
+    a.flush();
+    const row = a.$('#feed .msg[data-platform="twitch"]');
+    assertEqual(row.querySelector('.reply-name').textContent, '@Alice');
+    assertIncludes(row.querySelector('.reply-text').textContent, 'what time is it');
+  });
+
+  it('gives a name colour one readable value per theme', async () => {
+    const a = await boot();
+    a.click('.skip-btn');
+    const ws = await joinTwitch(a);
+    ws.emit('@display-name=Bob;color=#0000AA :b!b@b.tmi.twitch.tv PRIVMSG #somestreamer :hello\r\n');
+    a.flush();
+    const style = a.$('#feed .msg .m-author').getAttribute('style');
+    assertIncludes(style, '--author-dark:');
+    assertIncludes(style, '--author-light:');
+  });
+
+  it('draws the resub message with its emotes and the summary without', async () => {
+    const a = await boot();
+    a.click('.skip-btn');
+    const ws = await joinTwitch(a);
+    ws.emit('@msg-id=resub;display-name=Alice;msg-param-cumulative-months=3;emotes=25:0-4 '
+      + ':tmi.twitch.tv USERNOTICE #somestreamer :Kappa is great\r\n');
+    a.flush();
+    const row = a.$('#feed .sys-msg.event[data-platform="twitch"]');
+    assertIncludes(row.textContent, 'Alice resubscribed (3 months).');
+    assertEqual(row.querySelector('.sys-said .chat-emote').getAttribute('alt'), 'Kappa');
+  });
+});
+
+describe('app: kick message quality', () => {
+  it('draws the message a kick reply is answering above it', async () => {
+    const a = await boot();
+    a.click('.skip-btn');
+    const ws = await joinKick(a);
+    ws.emit(JSON.stringify({
+      event: 'App\\Events\\ChatMessageEvent',
+      data: JSON.stringify({
+        id: 'k2',
+        content: 'sure',
+        sender: { id: 3, username: 'KickFan', identity: { color: '#00AA00', badges: [] } },
+        metadata: {
+          original_sender: { username: 'Alice' },
+          original_message: { id: 'k1', content: 'ready?' },
+        },
+      }),
+    }));
+    a.flush();
+    const row = a.$('#feed .msg[data-platform="kick"]');
+    assertEqual(row.querySelector('.reply-name').textContent, '@Alice');
+    assertIncludes(row.querySelector('.reply-text').textContent, 'ready?');
+    assertIncludes(row.querySelector('.m-author').getAttribute('style'), '--author-dark:');
+  });
+
+  it('says a ban in words as well as striking the messages through', async () => {
+    const a = await boot();
+    a.click('.skip-btn');
+    const ws = await joinKick(a);
+    ws.emit(JSON.stringify({
+      event: 'App\\Events\\ChatMessageEvent',
+      data: JSON.stringify({ id: 'k9', content: 'rude', sender: { id: 5, username: 'Rude' } }),
+    }));
+    ws.emit(JSON.stringify({
+      event: 'App\\Events\\UserBannedEvent',
+      data: JSON.stringify({ user: { username: 'Rude' } }),
+    }));
+    a.flush();
+    assertIncludes(a.$('#feed .msg[data-platform="kick"]').className, 'deleted');
+    assertIncludes(a.$('#feed .sys-msg.event[data-platform="kick"]').textContent, 'Rude was banned.');
+  });
+
+  it('reads a timeout out of the expiry the ban event carries', async () => {
+    const a = await boot();
+    a.click('.skip-btn');
+    const ws = await joinKick(a);
+    ws.emit(JSON.stringify({
+      event: 'App\\Events\\UserBannedEvent',
+      data: JSON.stringify({
+        user: { username: 'Rude' },
+        expires_at: new Date(Date.now() + 300 * 1000).toISOString(),
+      }),
+    }));
+    a.flush();
+    assertIncludes(a.$('#feed .sys-msg.event[data-platform="kick"]').textContent,
+      'Rude was timed out for 5m.');
+  });
+
+  it('keeps housekeeping chatter out of the feed', async () => {
+    const a = await boot();
+    a.click('.skip-btn');
+    const ws = await joinKick(a);
+    const before = a.$$('#feed .sys-msg.event').length;
+    ws.emit(JSON.stringify({ event: 'App\\Events\\ChatroomUpdatedEvent', data: '{}' }));
+    ws.emit(JSON.stringify({ event: 'App\\Events\\StreamerIsLiveStatisticEvent', data: '{}' }));
+    a.flush();
+    assertEqual(a.$$('#feed .sys-msg.event').length, before);
   });
 });

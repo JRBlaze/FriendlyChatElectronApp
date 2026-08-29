@@ -357,10 +357,400 @@ describe('render: link edge cases', () => {
     assertEqual(hrefs, ['https://a.example', 'https://b.example']);
   });
 
-  it('leaves a bare domain as text', async () => {
+  it('links a bare domain, which is what people actually paste', async () => {
     const a = await boot();
     a.api().addMsg('twitch', 'user', 'go to example.com now', {});
     a.flush();
+    const link = a.$('#feed .chat-link');
+    // The scheme people left off. http would be a downgrade nobody asked for.
+    assertEqual(link.getAttribute('href'), 'https://example.com');
+    // What is shown is exactly what was typed, so a row can never display one
+    // address while pointing at another.
+    assertEqual(link.textContent, 'example.com');
+  });
+
+  it('keeps the path on a bare link and the sentence punctuation off it', async () => {
+    const a = await boot();
+    a.api().addMsg('kick', 'user', 'watch (kick.com/somechannel).', {});
+    a.flush();
+    assertEqual(a.$('#feed .chat-link').getAttribute('href'), 'https://kick.com/somechannel');
+    assertIncludes(a.$('#feed .m-body').textContent, '(kick.com/somechannel).');
+  });
+
+  it('does not turn filenames into links', async () => {
+    const a = await boot();
+    // "any dotted word" would point every one of these at nothing.
+    a.api().addMsg('twitch', 'user', 'see node.js and README.md and run.sh', {});
+    a.flush();
     assertEqual(a.$$('#feed .chat-link').length, 0);
+  });
+
+  it('does not link a dotted word followed by something that is not a path', async () => {
+    const a = await boot();
+    a.api().addMsg('twitch', 'user', 'example.com@notalink', {});
+    a.flush();
+    assertEqual(a.$$('#feed .chat-link').length, 0);
+  });
+});
+
+describe('render: author colours stay readable', () => {
+  it('emits a readable colour for each theme and keeps the hue', async () => {
+    const a = await boot();
+    // A dark blue plenty of people pick, which lands around 2:1 on a dark feed.
+    a.api().addMsg('twitch', 'user', 'hello', { color: '#0000AA' });
+    a.flush();
+    const style = a.$('#feed .m-author').getAttribute('style');
+    const dark = /--author-dark:\s*(#[0-9a-f]{6})/i.exec(style)[1];
+    const light = /--author-light:\s*(#[0-9a-f]{6})/i.exec(style)[1];
+    // Lifted on the dark feed, left alone or pushed down on the light one.
+    assert(dark !== '#0000aa', 'a colour that fails on the dark feed must be lifted');
+    assert(dark.toLowerCase() !== light.toLowerCase(), 'each theme gets its own value');
+    // Blue stays blue: only the lightness moves.
+    const [, dr, dg, db] = /#(..)(..)(..)/.exec(dark).map((v, i) => (i ? parseInt(v, 16) : v));
+    assert(db > dr && db > dg, `hue was not preserved: ${dark}`);
+  });
+
+  it('leaves a row with no colour on the platform tint', async () => {
+    const a = await boot();
+    a.api().addMsg('kick', 'user', 'hello', {});
+    a.flush();
+    assertEqual(a.$('#feed .m-author').getAttribute('style'), null);
+  });
+
+  it('ignores anything that is not a six-digit hex colour', async () => {
+    const a = await boot();
+    const api = a.api();
+    ['', 'red', '#fff', 'javascript:alert(1)', '#00ff00" onload="x'].forEach(value => {
+      assertEqual(api.authorColorStyle(value), '', `accepted ${JSON.stringify(value)}`);
+    });
+  });
+});
+
+describe('render: mentions of other people', () => {
+  it('draws somebody else in the colour this feed has seen them use', async () => {
+    const a = await boot();
+    const api = a.api();
+    api.addMsg('twitch', 'Alice', 'hi', { color: '#00AA00' });
+    api.addMsg('twitch', 'Bob', '@Alice hello', {});
+    a.flush();
+    const mention = a.$$('#feed .msg')[1].querySelector('.mention-user');
+    assertEqual(mention.textContent, '@Alice');
+    assertIncludes(mention.getAttribute('style'), '--author-dark:');
+  });
+
+  it('falls back to the platform tint for a name nobody here has used', async () => {
+    const a = await boot();
+    a.api().addMsg('kick', 'Bob', '@Stranger hello', {});
+    a.flush();
+    const mention = a.$('#feed .mention-user');
+    assertEqual(mention.className, 'mention-user kick');
+    assertEqual(mention.getAttribute('style'), null);
+  });
+
+  it('leaves the viewer\'s own name as the mention highlight, not a user chip', async () => {
+    const a = await boot();
+    a.api().settings.extraNicknames = 'me';
+    a.api().addMsg('twitch', 'Bob', '@me look', {});
+    a.flush();
+    assertEqual(a.$$('#feed .mention-user').length, 0);
+    assert(a.$('#feed .msg').classList.contains('mention-highlight'), 'row should be highlighted');
+  });
+
+  it('never unlearns a colour an earlier message established', async () => {
+    const a = await boot();
+    const api = a.api();
+    api.rememberChatter('twitch', 'Alice', '#00AA00');
+    // A later message without a colour must not blank it, or an @mention of
+    // them would flicker between the two.
+    api.rememberChatter('twitch', 'Alice', '');
+    assertEqual(api.chatterColor('twitch', 'alice'), '#00AA00');
+  });
+});
+
+// The CTCP byte `/me` arrives wrapped in. Built rather than written literally so
+// the file stays plain ASCII.
+const CTCP = String.fromCharCode(1);
+
+describe('render: /me actions', () => {
+  it('unwraps the CTCP wrapper instead of printing it', async () => {
+    const a = await boot();
+    const api = a.api();
+    assertEqual(api.parseIrcAction(`${CTCP}ACTION waves${CTCP}`), { action: true, text: 'waves' });
+    // Every client sends the closing byte, but a line truncated without it is
+    // still an action rather than a message about one.
+    assertEqual(api.parseIrcAction(`${CTCP}ACTION waves`), { action: true, text: 'waves' });
+    assertEqual(api.parseIrcAction('just talking'), { action: false, text: 'just talking' });
+  });
+
+  it('drops the colon and paints the line in the sender colour', async () => {
+    const a = await boot();
+    a.api().addMsg('twitch', 'user', 'waves', { action: true, color: '#00AA00' });
+    a.flush();
+    const row = a.$('#feed .msg');
+    assertIncludes(row.className, 'action');
+    assertEqual(row.querySelector('.m-colon'), null);
+    assertIncludes(row.querySelector('.m-body').getAttribute('style'), '--author-dark:');
+  });
+});
+
+describe('render: reply context', () => {
+  it('reads the parent out of the twitch reply tags', async () => {
+    const a = await boot();
+    const reply = a.api().twitchReplyContext({
+      'reply-parent-display-name': 'Alice',
+      'reply-parent-user-login': 'alice',
+      'reply-parent-msg-body': 'what time is it',
+      'reply-parent-msg-id': 'abc123',
+    });
+    assertEqual(reply.name, 'Alice');
+    assertEqual(reply.text, 'what time is it');
+    assertEqual(reply.messageId, 'abc123');
+    assertEqual(a.api().twitchReplyContext({}), null);
+  });
+
+  it('unwraps a parent that was itself an action', async () => {
+    const a = await boot();
+    const reply = a.api().twitchReplyContext({
+      'reply-parent-display-name': 'Alice',
+      'reply-parent-msg-body': `${CTCP}ACTION waves${CTCP}`,
+    });
+    assertEqual(reply.text, 'waves');
+  });
+
+  it('reads the parent out of kick metadata', async () => {
+    const a = await boot();
+    const reply = a.api().kickReplyContext({
+      metadata: {
+        original_sender: { username: 'Alice' },
+        original_message: { id: 'm1', content: 'what time is it' },
+      },
+    });
+    assertEqual(reply, { name: 'Alice', text: 'what time is it', messageId: 'm1' });
+    assertEqual(a.api().kickReplyContext(null), null);
+    assertEqual(a.api().kickReplyContext({ metadata: {} }), null);
+  });
+
+  it('draws the quoted original above the reply, emotes and all', async () => {
+    const a = await boot();
+    const api = a.api();
+    api.S.thirdPartyEmotes.twitch = { catJAM: { url: 'https://x/catjam.webp', source: '7TV' } };
+    api.addMsg('twitch', 'Bob', 'in a minute', {
+      reply: { name: 'Alice', text: 'ready catJAM', messageId: 'abc' },
+    });
+    a.flush();
+    const row = a.$('#feed .msg');
+    assertIncludes(row.className, 'has-reply');
+    assertEqual(row.querySelector('.reply-name').textContent, '@Alice');
+    assertEqual(row.querySelector('.reply-context .chat-emote').getAttribute('alt'), 'catJAM');
+    // Kept so a reply can be threaded onto it later.
+    assertEqual(row.querySelector('.m-author').dataset.replyId, 'abc');
+  });
+
+  it('says so when the platform sent no parent text', async () => {
+    const a = await boot();
+    a.api().addMsg('kick', 'Bob', 'sure', { reply: { name: 'Alice', text: '' } });
+    a.flush();
+    assertEqual(a.$('#feed .reply-gone').textContent, 'message unavailable');
+  });
+
+  it('escapes a hostile display name in the quoted line', async () => {
+    const a = await boot();
+    a.api().addMsg('twitch', 'Bob', 'ok', {
+      reply: { name: '<img src=x onerror=alert(1)>', text: '<script>alert(2)</script>' },
+    });
+    a.flush();
+    const row = a.$('#feed .msg');
+    assertEqual(row.querySelectorAll('script, iframe').length, 0);
+    assertEqual(row.querySelectorAll('.reply-context img').length, 0);
+  });
+});
+
+describe('render: first messages', () => {
+  it('marks a first message on the platform flag alone', async () => {
+    const a = await boot();
+    a.api().addMsg('twitch', 'newcomer', 'hi', { firstMessage: true });
+    a.flush();
+    const row = a.$('#feed .msg');
+    assertIncludes(row.className, 'first-msg');
+    assertEqual(row.querySelector('.first-tag').textContent, 'FIRST MESSAGE');
+  });
+
+  it('leaves an ordinary message unmarked', async () => {
+    const a = await boot();
+    a.api().addMsg('twitch', 'regular', 'hi', {});
+    a.flush();
+    assertNotIncludes(a.$('#feed .msg').className, 'first-msg');
+    assertEqual(a.$('#feed .first-tag'), null);
+  });
+});
+
+describe('render: events carry their emotes', () => {
+  it('draws the viewer half of an event with emotes and leaves the summary plain', async () => {
+    const a = await boot();
+    const api = a.api();
+    api.S.thirdPartyEmotes.twitch = { catJAM: { url: 'https://x/catjam.webp', source: '7TV' } };
+    // The summary names somebody whose display name spells an emote — a name,
+    // not a picture — while the message under the resub is theirs and is drawn
+    // as they typed it.
+    api.addEvent('twitch', 'catJAM resubscribed (3 months).', { body: 'thanks catJAM' });
+    a.flush();
+    const row = a.$('#feed .sys-msg.event');
+    assertEqual(row.querySelectorAll('.sys-said .chat-emote').length, 1);
+    assertEqual(row.querySelectorAll('.chat-emote').length, 1);
+    assertIncludes(row.textContent, 'catJAM resubscribed (3 months).');
+  });
+
+  it('links an address named in a system row', async () => {
+    const a = await boot();
+    a.api().addSys('Twitch: open https://twitch.tv/settings to fix this');
+    a.flush();
+    assertEqual(a.$('#feed .sys-msg .chat-link').getAttribute('href'), 'https://twitch.tv/settings');
+  });
+
+  it('still escapes hostile text in a system row', async () => {
+    const a = await boot();
+    a.api().addSys('<img src=x onerror=alert(1)>');
+    a.flush();
+    const row = a.$('#feed .sys-msg');
+    assertEqual(row.querySelectorAll('img, script').length, 0);
+    assertIncludes(row.textContent, '<img src=x onerror=alert(1)>');
+  });
+});
+
+describe('render: twitch emote map hardening', () => {
+  it('drops a range that points backwards', async () => {
+    const a = await boot();
+    assertEqual(a.api().parseTwitchEmoteMap('25:5-1'), null);
+    assertEqual(a.api().parseTwitchEmoteMap('25:-3--1'), null);
+  });
+
+  it('renders a message carrying a backwards range instead of hanging', async () => {
+    const a = await boot();
+    // Hand-built rather than parsed, so the tokenizer's own guard is what is
+    // under test: without it the cursor is sent back and the loop never ends.
+    const out = a.api().renderMessageBody('twitch', 'hello there', {
+      emoteMap: { 6: { id: '25', end: 2 } },
+    });
+    assertEqual(out.html, 'hello there');
+  });
+});
+
+describe('render: badges say what the role is', () => {
+  it('labels a known role when the badge images have not arrived', async () => {
+    const a = await boot();
+    const html = a.api().renderTwitchBadges('moderator/1,subscriber/12');
+    assertIncludes(html, '>MOD<');
+    assertIncludes(html, '>SUB<');
+  });
+
+  it('drops decoration rather than dumping a raw set id beside the name', async () => {
+    const a = await boot();
+    assertEqual(a.api().renderTwitchBadges('moments/1,game-developer/1'), '');
+  });
+
+  it('prefers the badge title once the images are loaded', async () => {
+    const a = await boot();
+    const api = a.api();
+    api.S.twitchBadges.global = {
+      subscriber: { 12: { image_url_1x: 'https://x/sub.png', title: '12-Month Subscriber' } },
+    };
+    assertIncludes(api.renderTwitchBadges('subscriber/12'), 'title="12-Month Subscriber"');
+  });
+});
+
+describe('render: emote previews', () => {
+  it('asks each provider for its largest size', async () => {
+    const a = await boot();
+    const bigger = a.api().largerEmoteUrl;
+    assertEqual(bigger('https://static-cdn.jtvnw.net/emoticons/v2/25/default/dark/2.0'),
+      'https://static-cdn.jtvnw.net/emoticons/v2/25/default/dark/3.0');
+    assertEqual(bigger('https://cdn.7tv.app/emote/1/2x.webp'), 'https://cdn.7tv.app/emote/1/4x.webp');
+    assertEqual(bigger('https://cdn.betterttv.net/emote/1/2x'), 'https://cdn.betterttv.net/emote/1/3x');
+    assertEqual(bigger('https://cdn.frankerfacez.com/emote/1/2'), 'https://cdn.frankerfacez.com/emote/1/4');
+  });
+
+  it('leaves a host it does not know alone rather than breaking the image', async () => {
+    const a = await boot();
+    assertEqual(a.api().largerEmoteUrl('https://files.kick.com/emotes/1/fullsize'),
+      'https://files.kick.com/emotes/1/fullsize');
+    assertEqual(a.api().largerEmoteUrl(''), '');
+  });
+
+  it('carries the source on the emote so the preview can name it', async () => {
+    const a = await boot();
+    a.api().S.thirdPartyEmotes.twitch = { catJAM: { url: 'https://x/catjam.webp', source: '7TV' } };
+    a.api().addMsg('twitch', 'user', 'catJAM', {});
+    a.flush();
+    const img = a.$('#feed .chat-emote');
+    assertEqual(img.dataset.source, '7TV');
+    // No `title`: the app draws its own preview, and two tooltips for one emote
+    // is worse than either alone.
+    assertEqual(img.getAttribute('title'), null);
+  });
+});
+
+describe('render: kick events', () => {
+  it('names what was redeemed rather than only "channel points"', async () => {
+    const a = await boot();
+    assertEqual(a.api().formatKickEventSummary('App\\Events\\ChannelPointsRedeemedEvent', {
+      username: 'Alice', reward_title: 'Feed the hedgehog',
+    }), 'Alice redeemed Feed the hedgehog.');
+  });
+
+  it('drops housekeeping events instead of filling the feed with them', async () => {
+    const a = await boot();
+    const api = a.api();
+    ['App\\Events\\ChatroomUpdatedEvent', 'App\\Events\\StreamerIsLiveStatisticEvent',
+      'App\\Events\\PinnedMessageCreatedEvent'].forEach(name => {
+      assertEqual(api.formatKickEventSummary(name, {}), '', `${name} should be dropped`);
+    });
+  });
+
+  it('still describes the events worth a row', async () => {
+    const a = await boot();
+    const api = a.api();
+    assertEqual(api.formatKickEventSummary('App\\Events\\SubscriptionEvent', { username: 'Alice' }),
+      'Alice subscribed.');
+    // A leaderboard update that carries a real gift count is mapped by name, so
+    // the housekeeping filter never sees it.
+    assertIncludes(api.formatKickEventSummary('App\\Events\\GiftsLeaderboardUpdated',
+      { gifter_username: 'Alice', gifted_quantity: 5 }), 'Alice gifted 5 subs.');
+  });
+
+  it('survives a null payload from the socket', async () => {
+    const a = await boot();
+    assertEqual(a.api().formatKickEventSummary('App\\Events\\SubscriptionEvent', null),
+      'Someone subscribed.');
+  });
+});
+
+describe('send: replies thread onto the original', () => {
+  it('sends the parent id when the composer still holds the reply', async () => {
+    const a = await boot();
+    const api = a.api();
+    api.replyToUser('Alice', 'twitch', 'abc123');
+    assertEqual(api.takePendingReply('twitch', '@Alice sure'), 'abc123');
+    // A different platform's send must not pick up Twitch's parent.
+    assertEqual(api.takePendingReply('kick', '@Alice sure'), '');
+  });
+
+  it('drops the thread once the viewer has typed something else', async () => {
+    const a = await boot();
+    const api = a.api();
+    api.replyToUser('Alice', 'twitch', 'abc123');
+    assertEqual(api.takePendingReply('twitch', 'never mind'), '');
+  });
+
+  it('stays an ordinary mention where the platform cannot thread it', async () => {
+    const a = await boot();
+    const api = a.api();
+    api.replyToUser('Alice', 'kick', 'abc123');
+    assertEqual(api.takePendingReply('kick', '@Alice sure'), '');
+  });
+
+  it('formats a duration in the unit a reader wanted', async () => {
+    const a = await boot();
+    const d = a.api().formatDuration;
+    assertEqual([d(30), d(300), d(3600), d(7200)], ['30s', '5m', '1h', '2h']);
   });
 });
