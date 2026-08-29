@@ -322,6 +322,28 @@ html[data-animations="off"] .msg,html[data-animations="off"] .sys-msg{animation:
 .sys-msg.error{border-left-color:#ff5a5a;}
 .sys-msg.event{border-left-color:var(--accent);}
 .sys-body{color:var(--sys-text);word-break:break-word;}
+/* The half of an event the viewer actually typed — the message under a resub,
+   the text of an announcement. Drawn the way a chat message is, emotes and all,
+   because it is one; the summary around it is not and stays plain. */
+.sys-said{color:var(--text);font-style:normal;}
+.sys-said .chat-emote{max-height:20px;height:auto;width:auto;vertical-align:middle;margin:0 1px;}
+/* Chat emotes are drawn small enough to read a line of text around, which is
+   right for reading and no use at all for "what is that". A pause over one
+   shows it at the largest size its provider has, with its name and source. */
+.emote-peek{position:fixed;z-index:400;pointer-events:none;display:flex;flex-direction:column;
+  align-items:center;gap:4px;max-width:190px;padding:9px 11px;border-radius:9px;
+  border:1px solid var(--border2);background:var(--surface);box-shadow:var(--menu-shadow);}
+.emote-peek.hidden{display:none;}
+.emote-peek-img{
+  /* Height rather than width: emotes are wildly different shapes, and a wide
+     one scaled to a square box is a wide one squashed. */
+  height:96px;max-width:164px;object-fit:contain;image-rendering:auto;}
+.emote-peek-name{font-size:max(11px,calc(var(--chat-font-size) - 1px));font-weight:600;
+  color:var(--text);word-break:break-all;text-align:center;}
+.emote-peek-from{font-family:'JetBrains Mono',monospace;
+  font-size:max(9px,calc(var(--chat-font-size) - 4px));color:var(--text-dim);
+  word-break:break-word;text-align:center;}
+.emote-peek-from.hidden{display:none;}
 .send-bar{background:var(--surface);border-top:1px solid var(--border);padding:9px 14px;display:flex;flex-direction:column;gap:7px;flex-shrink:0;}
 .send-targets{display:flex;align-items:center;gap:5px;}
 .s-label{font-size:11px;color:var(--text-dim);font-family:'JetBrains Mono',monospace;margin-right:3px;}
@@ -349,6 +371,59 @@ html[data-animations="off"] .msg,html[data-animations="off"] .sys-msg{animation:
 /* Mention highlight — when someone says your name in chat */
 .msg.mention-highlight{background:rgba(124,107,255,0.08);border-left:2px solid var(--accent);}
 .msg.mention-highlight:hover{background:rgba(124,107,255,0.14);}
+/* Somebody's first ever message in this channel, on the platform's own say-so.
+   Marked the way the platforms mark it — a tinted row and a label — because the
+   point of it is to be noticed by a moderator scanning past. Written before the
+   mention rule and at the same weight, so a row that is both keeps the
+   mention's colour: a row that names you is about you, and a first message is
+   about somebody else. */
+.msg.first-msg{background:rgba(145,70,255,0.07);border-left:2px solid var(--twitch);}
+.first-tag{display:inline-flex;align-items:center;height:15px;padding:0 5px;margin-right:5px;
+  border-radius:3px;background:rgba(145,70,255,0.22);color:#c6a5ff;
+  font-family:'JetBrains Mono',monospace;font-size:8.5px;font-weight:700;letter-spacing:0.04em;
+  line-height:1;text-transform:uppercase;vertical-align:middle;flex-shrink:0;}
+/* A name colour the platform handed over, nudged until it is readable and
+   emitted once per theme so a theme switch under an already-drawn row still
+   lands on a readable name. No colour falls through to the platform tint. */
+.m-author[style*="--author-dark"],
+.mention-user[style*="--author-dark"],
+.reply-name[style*="--author-dark"]{color:var(--author-dark);}
+html[data-theme="light"] .m-author[style*="--author-light"],
+html[data-theme="light"] .mention-user[style*="--author-light"],
+html[data-theme="light"] .reply-name[style*="--author-light"]{color:var(--author-light);}
+/* Somebody else's name written into a message, and the name above a reply.
+   Both are a person, so both are drawn in that person's own colour when this
+   feed has seen them speak — never a colour invented for them. */
+.mention-user,.reply-name{font-weight:600;}
+.mention-user.twitch,.reply-name.twitch{color:var(--twitch);}
+.mention-user.kick,.reply-name.kick{color:var(--kick);}
+.mention-user.youtube,.reply-name.youtube{color:var(--youtube);}
+/* `/me`. Both platforms drop the colon and paint the line in the sender's own
+   colour, which is the only thing left saying this is an action once the CTCP
+   wrapper has been taken off. */
+.msg.action .m-author{margin-right:5px;}
+.msg.action .m-body{font-style:italic;}
+.msg.action[data-platform="twitch"] .m-body{color:var(--twitch);}
+.msg.action[data-platform="kick"] .m-body{color:var(--kick);}
+.msg.action .m-body[style*="--author-dark"]{color:var(--author-dark);}
+html[data-theme="light"] .msg.action .m-body[style*="--author-light"]{color:var(--author-light);}
+/* The message a reply is answering, above the reply itself. One line and
+   clipped: it is context, and a long original must not push the answer down the
+   feed. The row it sits in is a flex line, so this takes the full width and
+   forces the message onto the line below it. */
+.msg.has-reply{flex-wrap:wrap;}
+.reply-context{flex:0 0 100%;display:flex;align-items:baseline;gap:4px;max-width:100%;
+  margin-bottom:1px;font-size:max(10px,calc(var(--chat-font-size) - 3px));line-height:1.35;
+  color:var(--text-dim);}
+.reply-icon,.reply-name{flex-shrink:0;}
+.reply-text{min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
+.reply-gone{font-style:italic;}
+/* Quoted, so nothing in it competes with the message underneath: emotes come
+   down to the size of the text and a link stops looking clickable, because it
+   is a copy of a link and not the link itself. */
+.reply-context .chat-emote{max-height:16px;height:auto;width:auto;margin:-1px 1px;}
+.reply-context .chat-link{color:inherit;text-decoration:none;}
+.reply-context .mention-self{background:none;color:inherit;padding:0;}
 .mention-self{background:var(--mention-bg);color:var(--mention-text);border-radius:3px;padding:0 3px;font-weight:600;}
 
 /* Autocomplete popup for emotes and mentions */
@@ -674,6 +749,12 @@ html[data-animations="off"] .msg,html[data-animations="off"] .sys-msg{animation:
 <div id="toast"></div>
 <!-- Autocomplete popup rendered at body level to avoid any overflow clipping -->
 <div class="autocomplete-popup" id="autocomplete-popup"></div>
+<!-- Emote preview, shown after a pause over any emote in the feed or picker. -->
+<div class="emote-peek hidden" id="emote-peek" aria-hidden="true">
+  <img class="emote-peek-img" id="emote-peek-img" alt="">
+  <span class="emote-peek-name" id="emote-peek-name"></span>
+  <span class="emote-peek-from hidden" id="emote-peek-from"></span>
+</div>
 
 <script>
 // Credentials are loaded from the server at startup via /config.
@@ -870,12 +951,21 @@ function applySettings() {
 
 // Every name that should light up a message: the connected account logins plus
 // anything the user typed into the settings box.
+// Rebuilt only when one of the four things it is made of changes. It used to be
+// recomputed for every message — and, once @mentions of other people were drawn
+// in their own colour, for every "@" in every message — which on a busy channel
+// was thousands of allocations a minute for an answer that almost never moves.
+let selfNamesCache = { key: null, names: [] };
+
 function selfNames() {
+  const key = JSON.stringify([S.twitchUserLogin, S.kickUserLogin, S.youtubeUserName, settings.extraNicknames]);
+  if(selfNamesCache.key === key) return selfNamesCache.names;
   const names = [S.twitchUserLogin, S.kickUserLogin, S.youtubeUserName]
     .concat(String(settings.extraNicknames || '').split(','))
     .map(n => String(n || '').trim().toLowerCase())
     .filter(Boolean);
-  return [...new Set(names)];
+  selfNamesCache = { key, names: [...new Set(names)] };
+  return selfNamesCache.names;
 }
 
 // ── Mention alerts (sound + desktop notification) ────────────────────────────
@@ -2127,6 +2217,9 @@ function renderYouTubeMessage(msg) {
 
 function applyYouTubeRemoval(removal) {
   if(!removal) return;
+  // The row being removed may still be in the render queue: a poll tick can
+  // deliver a message and its removal together.
+  flushFeed();
   if(removal.id) {
     const el = document.querySelector(`#feed .msg[data-platform="youtube"][data-msg-id="${cssEscape(String(removal.id))}"]`);
     if(el) el.classList.add('deleted');
@@ -2518,6 +2611,76 @@ function ircNick(prefix = '') {
   return bang === -1 ? prefix : prefix.slice(0, bang);
 }
 
+/**
+ * Unwraps the CTCP wrapper `/me` arrives in.
+ *
+ * Twitch sends an action as a PRIVMSG whose body is \u0001ACTION waves\u0001,
+ * so a client that does not know about the wrapper prints the control
+ * characters and the word ACTION as if the viewer had typed them.
+ *
+ * The emote positions in the `emotes` tag are counted from the text *inside*
+ * the wrapper, which is why this has to run before anything looks at the
+ * message: unwrapping later would leave every position eight characters out.
+ *
+ * @returns {{action: boolean, text: string}}
+ */
+function parseIrcAction(body) {
+  const value = String(body ?? '');
+  // The closing \u0001 is optional: every client sends it, and a line truncated
+  // without it is still an action rather than a message about one.
+  const match = /^\u0001ACTION(?: ([\s\S]*?))?\u0001?$/.exec(value);
+  if(!match) return { action: false, text: value };
+  return { action: true, text: match[1] || '' };
+}
+
+/**
+ * The message a Twitch reply is answering, from the tags Twitch attaches to
+ * every threaded reply.
+ *
+ * The parent body is carried verbatim in a tag, so the row can show what is
+ * being replied to without the original still being in the feed — which it
+ * usually is not, because a reply to something said an hour ago is exactly when
+ * the context is worth having.
+ *
+ * @returns {{name: string, login: string, text: string, messageId: string}|null}
+ */
+function twitchReplyContext(tags = {}) {
+  const name = tags['reply-parent-display-name'] || tags['reply-parent-user-login'] || '';
+  if(!name) return null;
+  // The parent can itself be a `/me`, and its wrapper is no more readable
+  // quoted than it was first time around.
+  const body = parseIrcAction(tags['reply-parent-msg-body'] || '');
+  return {
+    name: String(name),
+    login: String(tags['reply-parent-user-login'] || ''),
+    text: body.text,
+    messageId: String(tags['reply-parent-msg-id'] || ''),
+  };
+}
+
+/**
+ * The message a Kick reply is answering.
+ *
+ * Kick marks a reply by hanging the original off the message's metadata rather
+ * than by a type alone, so the metadata is what is read: a message carrying an
+ * original sender is a reply whatever it calls itself.
+ *
+ * @returns {{name: string, text: string, messageId: string}|null}
+ */
+function kickReplyContext(rawPayload) {
+  const payload = (rawPayload && typeof rawPayload === 'object') ? rawPayload : {};
+  const meta = (payload.metadata && typeof payload.metadata === 'object') ? payload.metadata : {};
+  const original = (meta.original_message && typeof meta.original_message === 'object')
+    ? meta.original_message : {};
+  const name = usernameFrom(meta.original_sender);
+  if(!name) return null;
+  return {
+    name: String(name),
+    text: String(original.content || ''),
+    messageId: String(original.id || ''),
+  };
+}
+
 function parseTwitchEmoteMap(emotesTag) {
   if(!emotesTag) return null;
   const emoteMap = {};
@@ -2529,7 +2692,11 @@ function parseTwitchEmoteMap(emotesTag) {
       const dash = range.indexOf('-');
       const start = parseInt(range.slice(0, dash), 10);
       const end = parseInt(range.slice(dash + 1), 10);
-      if(Number.isFinite(start) && Number.isFinite(end)) emoteMap[start] = { id, end };
+      // A range has to run forwards from a real position. Dropping the nonsense
+      // here means the tokenizer only ever sees ranges that advance.
+      if(Number.isFinite(start) && Number.isFinite(end) && start >= 0 && end >= start) {
+        emoteMap[start] = { id, end };
+      }
     });
   });
   return Object.keys(emoteMap).length ? emoteMap : null;
@@ -2597,6 +2764,15 @@ function isPusherProtocolEvent(eventName = '') {
   return eventName.startsWith('pusher:') || eventName.startsWith('pusher_internal:');
 }
 
+// A span of seconds in the shortest unit that still reads true. "1800s" is a
+// number a reader has to convert; "30m" is the thing they wanted to know.
+function formatDuration(seconds) {
+  const s = Math.max(0, Math.round(Number(seconds) || 0));
+  if(s >= 3600) return `${Math.round(s / 3600)}h`;
+  if(s >= 60) return `${Math.round(s / 60)}m`;
+  return `${s}s`;
+}
+
 function kickEventShortName(eventName = '') {
   return eventName.replace(/^App\\Events\\/, '').replace(/Event$/, '');
 }
@@ -2625,6 +2801,14 @@ function formatKickEventSummary(eventName, payload = {}) {
     payload?.count,
     payload?.amount
   );
+  // What was redeemed, when the event says so. Kick spells the field
+  // differently depending on which of its redemption events fired, and a row
+  // that can only say "channel points" is barely worth showing.
+  const rewardTitle = firstPresent(
+    payload?.reward_title,
+    payload?.reward?.title,
+    payload?.title
+  );
   const recipient = firstPresent(
     usernameFrom(payload?.receiver),
     usernameFrom(payload?.recipient),
@@ -2647,7 +2831,9 @@ function formatKickEventSummary(eventName, payload = {}) {
     'App\\Events\\HypeTrainProgressEvent': `Hype Train progress${count ? `: ${count}` : ''}.`,
     'App\\Events\\HypeTrainEndedEvent': 'Hype Train ended.',
     'App\\Events\\BitsEvent': `${sender} cheered${count ? ` ${count} bits` : ''}.`,
-    'App\\Events\\ChannelPointsRedeemedEvent': `${sender} redeemed channel points.`,
+    'App\\Events\\ChannelPointsRedeemedEvent': `${sender} redeemed ${rewardTitle || 'channel points'}.`,
+    'App\\Events\\RewardRedeemedEvent': `${sender} redeemed ${rewardTitle || 'a reward'}.`,
+    'App\\Events\\StreamHostEvent': `${sender} is hosting the channel.`,
     'App\\Events\\PollUpdateEvent': 'Poll updated.',
   };
   if(map[eventName]) return map[eventName];
@@ -2655,6 +2841,10 @@ function formatKickEventSummary(eventName, payload = {}) {
     return `${sender} gifted ${count || 1} sub${Number(count) === 1 ? '' : 's'}${recipient && Number(count) === 1 ? ` to ${recipient}` : ''}.`;
   }
   if(shortName.includes('Subscription')) return `${sender} subscribed.`;
+  // Housekeeping events are not worth a row in the feed: they are bookkeeping
+  // the socket does for the site's own widgets, and each one that gets through
+  // reads as "Someone triggered ChatroomUpdated" over and over.
+  if(/Updated|Statistic|Leaderboard|Livestream|Pinned|Deleted|Banned/i.test(shortName)) return '';
   return `${sender} triggered ${shortName}.`;
 }
 
@@ -2802,9 +2992,16 @@ function connectTwitch(channel, reconnectAttempt = 0) {
       }
 
       if(command === 'USERNOTICE') {
-        const text = (params[1] || '').trim();
-        const notice = twitchUserNoticeSummary(tags, text);
-        if(S.channels.twitch === channel && notice) addEvent('twitch', notice);
+        // The viewer's own half of the event — the message under a resub, the
+        // body of an announcement — is kept apart from our summary of it, so it
+        // can be drawn with its emotes while the summary stays plain text.
+        const said = parseIrcAction(params[1] || '').text.trim();
+        const notice = twitchUserNoticeSummary(tags, '');
+        if(S.channels.twitch === channel && notice) {
+          addEvent('twitch', notice, said
+            ? { body: said, emoteMap: parseTwitchEmoteMap(tags['emotes']) }
+            : null);
+        }
         return;
       }
 
@@ -2821,9 +3018,17 @@ function connectTwitch(channel, reconnectAttempt = 0) {
       // Fallback to nick if display-name tag was empty
       if(!displayName) displayName = ircNick(prefix) || 'unknown';
 
-      const text = (params[1] || '').trim();
+      // The CTCP wrapper comes off before anything else looks at the message:
+      // the emote positions Twitch sends are counted from the text inside it,
+      // so unwrapping later would leave every position eight characters out.
+      const { action, text: unwrapped } = parseIrcAction(params[1] || '');
+      const text = unwrapped.trim();
       if(!text) return;
 
+      const emoteMap = parseTwitchEmoteMap(tags['emotes']);
+
+      // Summary only. The message itself follows as an ordinary chat row a line
+      // below, so drawing it here as well would say the same thing twice.
       if(tags.bits && Number(tags.bits) > 0) {
         addEvent('twitch', `${displayName} cheered ${tags.bits} bits!`);
       }
@@ -2833,10 +3038,16 @@ function connectTwitch(channel, reconnectAttempt = 0) {
 
       addMsg('twitch', displayName, text, {
         badgeClass,
-        emoteMap:  parseTwitchEmoteMap(tags['emotes']),
+        action,
+        emoteMap,
         badgeHtml: renderTwitchBadges(badges),
         messageId: tags['id'] || null,
         userId:    tags['user-id'] || null,
+        // Twitch's own per-user name colour, nudged to stay readable.
+        color:     tags['color'] || '',
+        // Twitch's own flag, not a guess from what this feed has seen.
+        firstMessage: tags['first-msg'] === '1',
+        reply:     twitchReplyContext(tags),
         timestamp: Number(tags['tmi-sent-ts']) || null,
       });
     });
@@ -2864,12 +3075,20 @@ function connectTwitch(channel, reconnectAttempt = 0) {
 function markMessagesDeleted(platform, username) {
   const lower = String(username || '').toLowerCase();
   if(!lower) return;
+  // Rows are appended a frame at a time, and a ban routinely arrives in the
+  // same frame as the message that earned it. Without draining the queue first
+  // those rows are not in the feed yet to be found, and the one message the
+  // moderator acted on is the one that stays undimmed.
+  flushFeed();
   document.querySelectorAll(`#feed .msg[data-platform="${platform}"]`).forEach(el => {
     if(el.querySelector('.m-author')?.dataset.user?.toLowerCase() === lower) el.classList.add('deleted');
   });
 }
 
 function markMessageDeletedById(platform, messageId) {
+  // Same reason as above: the message being deleted may not have been attached
+  // yet when the delete arrived.
+  flushFeed();
   const el = document.querySelector(`#feed .msg[data-platform="${platform}"][data-msg-id="${cssEscape(String(messageId))}"]`);
   if(el) el.classList.add('deleted');
 }
@@ -2972,6 +3191,25 @@ function connectKick(channel, reconnectAttempt = 0) {
         if(msg.event === 'App\\Events\\UserBannedEvent') {
           const banned = usernameFrom(payload?.user) || usernameFrom(payload?.banned_user);
           if(banned) markMessagesDeleted('kick', banned);
+          // Said in words as well as struck through, the way the Twitch side
+          // already says it. A timeout carries an expiry; a ban does not.
+          if(S.channels.kick === channel && banned) {
+            const expires = payload?.expires_at || payload?.expiresAt || null;
+            const seconds = expires
+              ? Math.max(1, Math.round((Date.parse(expires) - Date.now()) / 1000))
+              : 0;
+            addEvent('kick', seconds
+              ? `${banned} was timed out for ${formatDuration(seconds)}.`
+              : `${banned} was banned.`);
+          }
+          return;
+        }
+        if(msg.event === 'App\\Events\\UserUnbannedEvent') {
+          const unbanned = usernameFrom(payload?.user) || usernameFrom(payload?.unbanned_user);
+          if(S.channels.kick === channel && unbanned) {
+            addEvent('kick', `${unbanned} is no longer banned.`);
+          }
+          return;
         }
         if(msg.event !== 'App\\Events\\ChatMessageEvent') {
           if(S.channels.kick === channel && msg.event) {
@@ -3023,6 +3261,9 @@ function connectKick(channel, reconnectAttempt = 0) {
             badgeHtml: kickBadgeHtml,
             messageId: payload.id || payload.message_id || null,
             userId:    payload.sender?.id || payload.sender?.user_id || null,
+            // Kick's own per-user name colour, nudged to stay readable.
+            color:     payload.sender?.identity?.color || '',
+            reply:     kickReplyContext(payload),
             emotes:    payload.emotes || [],
             timestamp: payload.created_at ? Date.parse(payload.created_at) : null,
           });
@@ -3075,7 +3316,7 @@ async function fetchTwitchHistory(channel) {
       const { tags, prefix, command, params } = parseIrcLine(raw);
       if(command !== 'PRIVMSG') return;
       const author = tags['display-name'] || ircNick(prefix) || 'unknown';
-      const text   = params[1] || '';
+      const { action, text } = parseIrcAction(params[1] || '');
       if(!text) return;
       const badges = tags['badges'] || '';
       let badge = null;
@@ -3084,6 +3325,12 @@ async function fetchTwitchHistory(channel) {
       else if(badges.includes('vip')) badge = 'vip';
       addMsg('twitch', author, text, {
         badgeClass: badge,
+        action,
+        color:      tags['color'] || '',
+        reply:      twitchReplyContext(tags),
+        // Replayed history is deliberately left unmarked: the first-message
+        // highlight is a prompt to do something about somebody who has just
+        // turned up, and acting on it an hour late is meaningless.
         emoteMap:   parseTwitchEmoteMap(tags['emotes']),
         badgeHtml:  renderTwitchBadges(badges),
         messageId:  tags['id'] || null,
@@ -3118,6 +3365,8 @@ async function fetchKickHistory(chatroomId) {
         badgeHtml:  renderKickBadges(kickBadges),
         messageId:  msg.id || msg.message_id || null,
         userId:     msg.sender?.id || msg.sender?.user_id || msg.metadata?.sender?.id || null,
+        color:      msg.sender?.identity?.color || msg.metadata?.sender?.identity?.color || '',
+        reply:      kickReplyContext(msg),
         emotes:     msg.emotes || msg.metadata?.emotes || [],
         timestamp:  msg.created_at ? Date.parse(msg.created_at) : null,
         history:    true,
@@ -3541,6 +3790,18 @@ function normalizeTwitchBadgeResponse(data) {
   return map;
 }
 
+// Short labels for the roles worth calling out when no badge image is
+// available. Anything not listed here is decoration rather than a role, so an
+// unresolved badge is dropped instead of dumping a raw set id into the row —
+// "moments/1" beside a username says nothing a reader can use.
+const ROLE_LABELS = {
+  broadcaster: 'HOST', moderator: 'MOD', subscriber: 'SUB', vip: 'VIP',
+  founder: 'FOUNDER', staff: 'STAFF', admin: 'ADMIN', global_mod: 'GMOD',
+  verified: 'VERIFIED', partner: 'PARTNER', artist: 'ARTIST', 'artist-badge': 'ARTIST',
+  gifter: 'GIFTER', gifted: 'GIFTED', og: 'OG', event: 'EVENT',
+  sub_gifter: 'GIFTER', 'sub-gifter': 'GIFTER', sidekick: 'SIDEKICK',
+};
+
 function renderTwitchBadges(badgesTag = '') {
   if(!badgesTag) return '';
   const rendered = [];
@@ -3553,12 +3814,18 @@ function renderTwitchBadges(badgesTag = '') {
     const badge = versionMap?.[version] || null;
     const img = badge?.image_url_1x || badge?.image_url_2x || badge?.image_url_4x;
     if(img) {
+      // Twitch ships a human title with each badge ("Subscriber", "Moderator",
+      // "3-Month Subscriber"). It says more than "subscriber 3" ever did.
+      const title = badge.title || ROLE_LABELS[setId] || setId;
       rendered.push(
-        `<img class="twitch-badge-img" src="${img}" alt="${escapeHtml(setId)}" title="${escapeHtml(setId)} ${escapeHtml(version)}">`
+        `<img class="twitch-badge-img" src="${escapeHtml(img)}" alt="${escapeHtml(setId)}" title="${escapeHtml(title)}">`
       );
       return;
     }
-    rendered.push(`<span class="twitch-badge-fallback">${escapeHtml(setId)}</span>`);
+    // Badge images have not arrived yet (or this set is unknown): fall back to
+    // a label, but only for the roles that actually say something.
+    const label = ROLE_LABELS[setId];
+    if(label) rendered.push(`<span class="twitch-badge-fallback">${label}</span>`);
   });
   return rendered.length ? `<span class="twitch-badges">${rendered.join('')}</span>` : '';
 }
@@ -3652,9 +3919,206 @@ async function fetchTwitchBadges() {
 // Token kinds: { type:'text', text } | { type:'emote', url, name, cls } |
 //              { type:'link', url, text } | { type:'mention', text }
 
+// ── Readable username colours ────────────────────────────────────────────────
+//
+// Twitch hands out per-user name colours and Kick does the same via identity.
+// Both let people pick one, and plenty pick a dark blue that lands at 2:1 on a
+// dark feed. The hue is theirs to choose, so it is kept and only the lightness
+// is moved until the name is readable — and because the app switches between
+// light and dark under rows that are already on screen, a value for each theme
+// is emitted and CSS picks.
+
+// The feed background each theme paints behind a username, which is what a name
+// colour has to be readable against.
+const AUTHOR_BACKDROP = { dark: [13, 13, 15], light: [245, 247, 251] };
+// Aimed above the 4.5 bar on purpose, so the margin survives the row tints a
+// mention or a first message paints behind the same text.
+const AUTHOR_MIN_CONTRAST = 5.2;
+
+const srgbChannel = c => {
+  const v = c / 255;
+  return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+};
+const relativeLuminance = ([r, g, b]) =>
+  0.2126 * srgbChannel(r) + 0.7152 * srgbChannel(g) + 0.0722 * srgbChannel(b);
+const contrastRatio = (a, b) => {
+  const [hi, lo] = [relativeLuminance(a), relativeLuminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+};
+
+function rgbToHsl([r, g, b]) {
+  const R = r / 255, G = g / 255, B = b / 255;
+  const max = Math.max(R, G, B), min = Math.min(R, G, B);
+  const l = (max + min) / 2;
+  if(max === min) return [0, 0, l];
+  const d = max - min;
+  const sat = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h;
+  if(max === R)      h = ((G - B) / d + (G < B ? 6 : 0)) / 6;
+  else if(max === G) h = ((B - R) / d + 2) / 6;
+  else               h = ((R - G) / d + 4) / 6;
+  return [h, sat, l];
+}
+
+function hslToRgb([h, sat, l]) {
+  if(sat === 0) { const v = Math.round(l * 255); return [v, v, v]; }
+  const q = l < 0.5 ? l * (1 + sat) : l + sat - l * sat;
+  const p = 2 * l - q;
+  const channel = t => {
+    let x = t;
+    if(x < 0) x += 1;
+    if(x > 1) x -= 1;
+    if(x < 1 / 6) return p + (q - p) * 6 * x;
+    if(x < 1 / 2) return q;
+    if(x < 2 / 3) return p + (q - p) * (2 / 3 - x) * 6;
+    return p;
+  };
+  return [channel(h + 1 / 3), channel(h), channel(h - 1 / 3)].map(v => Math.round(v * 255));
+}
+
+const hexPair = n => n.toString(16).padStart(2, '0');
+const rgbToHex = ([r, g, b]) => `#${hexPair(r)}${hexPair(g)}${hexPair(b)}`;
+
+// The smallest change that works: step the lightness away from the background —
+// up on a dark feed, down on a light one — and stop at the first step that
+// clears the bar. A colour that is already readable is returned untouched.
+function readableOn(rgb, backdrop) {
+  if(contrastRatio(rgb, backdrop) >= AUTHOR_MIN_CONTRAST) return rgb;
+  const [h, sat, base] = rgbToHsl(rgb);
+  const up = relativeLuminance(backdrop) < 0.5;
+  let best = rgb;
+  for(let i = 1; i <= 100; i++) {
+    const l = up ? Math.min(1, base + i / 100) : Math.max(0, base - i / 100);
+    const candidate = hslToRgb([h, sat, l]);
+    best = candidate;
+    if(contrastRatio(candidate, backdrop) >= AUTHOR_MIN_CONTRAST) return candidate;
+    if(l === 0 || l === 1) break;
+  }
+  return best;
+}
+
+// The inline style for a username, carrying one readable value per theme.
+// Returns '' when the platform sent no usable colour, which leaves the row on
+// the stylesheet's own platform colour.
+function authorColorStyle(value) {
+  const raw = String(value || '').trim();
+  if(!/^#[0-9a-fA-F]{6}$/.test(raw)) return '';
+  const rgb = [1, 3, 5].map(i => parseInt(raw.slice(i, i + 2), 16));
+  const dark  = rgbToHex(readableOn(rgb, AUTHOR_BACKDROP.dark));
+  const light = rgbToHex(readableOn(rgb, AUTHOR_BACKDROP.light));
+  return ` style="--author-dark:${dark};--author-light:${light}"`;
+}
+
+/**
+ * The colour a person's own name is drawn in, for the times their name is
+ * written by somebody else.
+ *
+ * Only from what this feed has actually seen: there is no lookup for "what
+ * colour is this name", and inventing one would mean an @mention rendering in a
+ * colour the person does not have.
+ *
+ * @returns {string} a #rrggbb colour, or '' when nobody by that name has spoken
+ *   here yet
+ */
+function chatterColor(platform, name) {
+  const hit = S.recentChatters.get(`${platform}:${String(name).toLowerCase()}`);
+  return (hit && hit.color) || '';
+}
+
 // Captures any opening punctuation the URL is wrapped in — "(https://x)" is a
 // link with a stray bracket either side, not plain text.
 const URL_RE = /^([([{<"']*)(https?:\/\/[^\s]+)$/i;
+
+// The same shape with the scheme left off. Almost nobody types the https:
+// "kick.com/name" and "youtu.be/xYz" are what people actually paste, and every
+// platform's own chat draws them as links.
+const BARE_URL_RE = /^([([{<"']*)((?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,24})([^\s]*)$/i;
+
+// Trailing punctuation is almost never part of the link.
+const TRAILING_PUNCT_RE = /[.,!?;:'")\]}>]+$/;
+
+// "@name," — a name on every platform here is letters, digits and underscores,
+// and whatever sentence punctuation follows it is not part of it.
+const AT_MENTION_RE = /^@([A-Za-z0-9_]{2,30})([^A-Za-z0-9_]*)$/;
+
+// A bare host only becomes a link when its last label is a real top-level
+// domain, because "any dotted word" would turn "node.js", "README.md" and
+// "run.sh" into links pointing at nothing. Anything under www. is taken on the
+// prefix alone.
+const BARE_TLDS = new Set([
+  'com', 'net', 'org', 'edu', 'gov', 'int', 'mil', 'info', 'biz', 'name', 'pro',
+  'io', 'co', 'tv', 'gg', 'me', 'ai', 'app', 'dev', 'xyz', 'link', 'live', 'stream',
+  'online', 'site', 'shop', 'store', 'news', 'blog', 'wiki', 'art', 'fun', 'club',
+  'life', 'world', 'today', 'space', 'cloud', 'tech', 'media', 'video', 'watch',
+  'games', 'gallery', 'design', 'studio', 'social', 'chat', 'fm', 'am', 'ly', 'gl',
+  'to', 'be', 'cc', 'ws', 'uk', 'us', 'ca', 'de', 'fr', 'nl', 'es', 'it', 'se',
+  'no', 'fi', 'dk', 'br', 'au', 'nz', 'jp', 'kr', 'cn', 'in', 'ru', 'ua', 'tr',
+  'mx', 'ar', 'cl', 'pt', 'gr', 'cz', 'ro', 'hu', 'at', 'ch', 'ie', 'il',
+  'za', 'ph', 'id', 'th', 'vn', 'my', 'sg', 'hk', 'tw', 'eu',
+]);
+
+/**
+ * A link token for one whitespace-separated word, or null when the word is not
+ * a link. The punctuation that has to stay as text comes back alongside it,
+ * because "(kick.com/name)." is a link with three characters of sentence
+ * wrapped around it.
+ *
+ * The visible text is always exactly what was typed, so a row can never show
+ * one address while pointing at another.
+ */
+function linkTokenFor(word) {
+  const scheme = word.match(URL_RE);
+  if(scheme) {
+    const clean = scheme[2].replace(TRAILING_PUNCT_RE, '');
+    // "https://" on its own is punctuation, not a destination.
+    if(!/^https?:\/\/[^/\s]/i.test(clean)) return null;
+    return {
+      lead: scheme[1],
+      token: { type: 'link', url: clean, text: clean },
+      tail: scheme[2].slice(clean.length),
+    };
+  }
+
+  const bare = word.match(BARE_URL_RE);
+  if(!bare) return null;
+  const host = bare[2];
+  const tld = host.slice(host.lastIndexOf('.') + 1).toLowerCase();
+  if(!/^www\./i.test(host) && !BARE_TLDS.has(tld)) return null;
+  const rest = bare[3].replace(TRAILING_PUNCT_RE, '');
+  // Whatever follows the host has to look like a path, a query or a fragment.
+  // Anything else means the dotted word was never an address.
+  if(rest && !/^[/?#]/.test(rest)) return null;
+  const text = host + rest;
+  return {
+    lead: bare[1],
+    // The scheme people left off. http would be a downgrade nobody asked for.
+    token: { type: 'link', url: `https://${text}`, text },
+    tail: bare[3].slice(rest.length),
+  };
+}
+
+/**
+ * A token for one person's name written into a message, drawn in the colour
+ * that person's own name is drawn in.
+ *
+ * Someone else's name is the case this handles. The viewer's own names are
+ * deliberately left as text so highlightMentionTokens still turns them into the
+ * highlight that says the message is addressed to them — that is a different
+ * fact from "this row names somebody", and the louder one wins.
+ *
+ * @returns {{token: object, tail: string}|null}
+ */
+function mentionTokenFor(word, platform) {
+  if(!platform || word.charCodeAt(0) !== 64) return null;
+  const match = AT_MENTION_RE.exec(word);
+  if(!match) return null;
+  const name = match[1];
+  if(selfNames().includes(name.toLowerCase())) return null;
+  return {
+    token: { type: 'user', text: `@${name}`, platform, color: chatterColor(platform, name) },
+    tail: match[2],
+  };
+}
 
 function lookupEmote(platform, name) {
   return S.nativeEmotes[platform]?.[name] || S.thirdPartyEmotes[platform]?.[name] || null;
@@ -3680,19 +4144,21 @@ function expandTextRun(text, platform) {
       return;
     }
 
-    const urlMatch = word.match(URL_RE);
-    if(urlMatch) {
-      const [, lead, rest] = urlMatch;
-      // Trailing punctuation is almost never part of the link.
-      const clean = rest.replace(/[.,!?;:'")\]}>]+$/, '');
-      const tail  = rest.slice(clean.length);
-      if(clean) {
-        buffer += lead;
-        flush();
-        out.push({ type: 'link', url: clean, text: clean });
-        if(tail) buffer += tail;
-        return;
-      }
+    const mention = mentionTokenFor(word, platform);
+    if(mention) {
+      flush();
+      out.push(mention.token);
+      if(mention.tail) buffer += mention.tail;
+      return;
+    }
+
+    const link = linkTokenFor(word);
+    if(link) {
+      buffer += link.lead;
+      flush();
+      out.push(link.token);
+      if(link.tail) buffer += link.tail;
+      return;
     }
 
     buffer += word;
@@ -3713,7 +4179,11 @@ function tokenizeTwitch(text, emoteMap) {
   let i = 0;
   while(i < chars.length) {
     const hit = emoteMap[i];
-    if(hit) {
+    // `end` must be at or past the cursor. A range that points backwards —
+    // malformed, or crafted — would otherwise send the cursor back to where it
+    // has already been and spin here forever, allocating a token each time
+    // until the app dies.
+    if(hit && hit.end >= i) {
       if(run) { tokens.push({ type: 'text', text: run }); run = ''; }
       const name = chars.slice(i, hit.end + 1).join('');
       tokens.push({
@@ -3832,8 +4302,13 @@ function highlightMentionTokens(tokens, names) {
 function serializeTokens(tokens) {
   return tokens.map(token => {
     if(token.type === 'emote') {
-      const title = token.source ? `${token.name} (${token.source})` : token.name;
-      return `<img class="chat-emote ${token.cls}" src="${escapeHtml(token.url)}" alt="${escapeHtml(token.name)}" title="${escapeHtml(title)}" loading="lazy">`;
+      // No `title`: the app draws its own preview on hover, and the browser's
+      // tooltip appears on the same pause, in the same place, with less in it.
+      // Two tooltips for one emote is worse than either alone. `alt` still
+      // carries the name, for a screen reader and for the preview to look the
+      // emote up by; the source rides along on a data attribute.
+      const from = token.source ? ` data-source="${escapeHtml(token.source)}"` : '';
+      return `<img class="chat-emote ${token.cls}" src="${escapeHtml(token.url)}" alt="${escapeHtml(token.name)}"${from} loading="lazy">`;
     }
     if(token.type === 'link') {
       return `<a href="${escapeHtml(token.url)}" target="_blank" rel="noopener noreferrer" class="chat-link">${escapeHtml(token.text)}</a>`;
@@ -3841,8 +4316,29 @@ function serializeTokens(tokens) {
     if(token.type === 'mention') {
       return `<span class="mention-self">${escapeHtml(token.text)}</span>`;
     }
+    if(token.type === 'user') {
+      // The same per-theme colour pair a username carries, so a mention stays
+      // readable when the app switches theme under a row already drawn. No
+      // colour known yet falls back to the platform's own tint in CSS.
+      return `<span class="mention-user ${escapeHtml(token.platform)}"${authorColorStyle(token.color)}>${escapeHtml(token.text)}</span>`;
+    }
     return escapeHtml(token.text);
   }).join('');
+}
+
+/**
+ * Text with its links made clickable and everything else escaped, for the rows
+ * that are not chat: status lines, account notices, channel events.
+ *
+ * A sign-in page or a channel address named in one of those is worth clicking
+ * rather than retyping. Emotes are deliberately not expanded here — a status
+ * line is not something a viewer typed, and a display name that happens to
+ * spell an emote name is a name, not a picture.
+ */
+function renderLinkedText(text) {
+  // No platform, so the emote and @mention lookups find nothing and only links
+  // are split out of the run.
+  return serializeTokens(expandTextRun(String(text ?? ''), null));
 }
 
 // Builds the final body HTML plus whether the message mentions the user.
@@ -3987,23 +4483,40 @@ function addSys(txt) {
   el.innerHTML = `<span class="sys-time">${ftime()}</span>`
     + `<span class="sys-tag">SYSTEM</span>`
     + `<span class="sys-label ${escapeHtml(sys.type)}">${escapeHtml(sys.label)}</span>`
-    + `<span class="sys-body">${escapeHtml(sys.message)}</span>`;
+    // Linkified, not just escaped: a sign-in page or a channel address named in
+    // a status line is worth clicking rather than retyping.
+    + `<span class="sys-body">${renderLinkedText(sys.message)}</span>`;
   queueFeedNode(el);
   return el;
 }
 
-// A thing that happened on a platform (sub, raid, hype train, cheer). Shown in
-// the same muted style as system rows so it never looks like a user typed it,
-// but tagged with the platform so filters still apply.
-function addEvent(platform, txt) {
+/**
+ * A thing that happened on a platform (sub, raid, hype train, cheer, redemption).
+ * Shown in the same muted style as system rows so it never looks like a user
+ * typed it, but tagged with the platform so filters still apply.
+ *
+ * Two halves, and they are not rendered the same way. The summary is ours and
+ * goes through renderLinkedText, which draws no emotes — a display name that
+ * happens to spell an emote name is a name, not a picture. Anything the viewer
+ * actually typed alongside it — the message under a resub, the text of an
+ * announcement — is theirs, and goes through the same pipeline a chat message
+ * does, so the emotes in it are emotes.
+ *
+ * @param {object} [meta] { body, emoteMap, emotes, runs } — the viewer's own
+ *   half of the event and whatever the platform said about the emotes in it
+ */
+function addEvent(platform, txt, meta = null) {
   const el = document.createElement('div');
   el.className = `sys-msg event${!S.filter.has(platform) ? ' hide' : ''}`;
   el.dataset.platform = platform;
   const label = CFG[platform]?.name || platform;
+  const said = meta?.body
+    ? ` <span class="sys-said">${renderMessageBody(platform, meta.body, meta).html}</span>`
+    : '';
   el.innerHTML = `<span class="sys-time">${ftime()}</span>`
     + `<span class="sys-tag">EVENT</span>`
     + `<span class="sys-label ${escapeHtml(platform)}">${escapeHtml(label)}</span>`
-    + `<span class="sys-body">${escapeHtml(String(txt || ''))}</span>`;
+    + `<span class="sys-body">${renderLinkedText(txt)}${said}</span>`;
   queueFeedNode(el);
   return el;
 }
@@ -4089,6 +4602,36 @@ function renderKickBadges(badges = []) {
   return rendered.length ? `<span class="kick-badges">${rendered.join('')}</span>` : '';
 }
 
+// Everyone who has spoken recently, newest first, for @mention autocomplete and
+// for drawing their name in their own colour when somebody else writes it.
+const CHATTER_LIMIT = 200;
+
+function rememberChatter(platform, author, color) {
+  const name = String(author || '');
+  if(!name) return;
+  const key = `${platform}:${name.toLowerCase()}`;
+  const existing = S.recentChatters.get(key);
+  if(existing) {
+    existing.time = Date.now();
+    // A colour is only ever learnt here, never unlearnt: a message that arrived
+    // without one must not blank the colour an earlier message established, or
+    // an @mention of them would flicker between the two.
+    if(color) existing.color = color;
+    // Re-inserted so the map's own order is recency order. Without this the
+    // oldest *key* was dropped rather than the least recently heard from, so in
+    // a channel with more than a few hundred names a regular who had been
+    // talking since you arrived was evicted ahead of somebody who said one word
+    // and left.
+    S.recentChatters.delete(key);
+    S.recentChatters.set(key, existing);
+    return;
+  }
+  S.recentChatters.set(key, { name, platform, time: Date.now(), color: color || '' });
+  if(S.recentChatters.size > CHATTER_LIMIT) {
+    S.recentChatters.delete(S.recentChatters.keys().next().value);
+  }
+}
+
 function rememberSeenMessage(platform, messageId) {
   const key = `${platform}:${String(messageId)}`;
   if(S.seenMessageIds.has(key)) return false;
@@ -4102,6 +4645,30 @@ function rememberSeenMessage(platform, messageId) {
   return true;
 }
 
+/**
+ * The line above a reply saying what it is answering.
+ *
+ * Every platform here sends the original's text along with the reply, which is
+ * what makes this worth drawing: the message being answered is usually long
+ * gone from the feed by the time the answer arrives, and a bare "@someone"
+ * leaves the reader scrolling for something that is no longer there.
+ *
+ * Rendered through the message pipeline so an emote quoted back is an emote,
+ * and trimmed to one line by CSS rather than by cutting the text, so nothing is
+ * lost from the title.
+ */
+function replyContextHtml(platform, reply) {
+  if(!reply?.name) return '';
+  const quoted = reply.text
+    ? renderMessageBody(platform, reply.text, {}).html
+    : '<span class="reply-gone">message unavailable</span>';
+  return '<span class="reply-context" aria-label="Replying to">'
+    + '<span class="reply-icon" aria-hidden="true">&#8617;</span>'
+    + `<span class="reply-name ${escapeHtml(platform)}"${authorColorStyle(chatterColor(platform, reply.name))}>`
+    + `${escapeHtml(`@${reply.name}`)}</span>`
+    + `<span class="reply-text">${quoted}</span></span>`;
+}
+
 function addMsg(platform, author, text, opts = {}) {
   if(opts.messageId && !rememberSeenMessage(platform, opts.messageId)) return null;
 
@@ -4109,6 +4676,16 @@ function addMsg(platform, author, text, opts = {}) {
   const classes = ['msg'];
   if(!S.filter.has(platform)) classes.push('hide');
   if(opts.superChat) classes.push('superchat');
+  // `/me`: every platform's own chat drops the colon and paints the whole line
+  // in the sender's colour, which is the only thing that tells an action apart
+  // from an ordinary message once the wrapper has been taken off.
+  if(opts.action) classes.push('action');
+  // Only ever set from the platform's own flag. There is no guessing here on
+  // purpose: "we have not seen them since the app opened" is a different claim
+  // from "they have never spoken in this channel", and it is the second one
+  // this row makes.
+  if(opts.firstMessage) classes.push('first-msg');
+  if(opts.reply?.name) classes.push('has-reply');
 
   const badge = opts.badgeClass
     ? `<span class="badge ${opts.badgeClass}">${opts.badgeClass.toUpperCase()}</span>`
@@ -4117,9 +4694,15 @@ function addMsg(platform, author, text, opts = {}) {
     ? `<span class="superchat-amount">${escapeHtml(opts.superChat)}</span>`
     : '';
 
+  const authorLower = String(author || '').toLowerCase();
+
+  // Recorded before the body is rendered so a message that @mentions its own
+  // sender still finds their colour, and so the colour is on file for every
+  // @mention of them that follows.
+  rememberChatter(platform, author, opts.color);
+
   const { html: bodyHtml, mentioned } = renderMessageBody(platform, text, opts);
 
-  const authorLower = String(author || '').toLowerCase();
   const isSelf = selfNames().includes(authorLower);
   if(mentioned && !isSelf) classes.push('mention-highlight');
   el.className = classes.join(' ');
@@ -4127,26 +4710,25 @@ function addMsg(platform, author, text, opts = {}) {
   if(opts.messageId) el.dataset.msgId = String(opts.messageId);
 
   const userIdAttr = opts.userId ? ` data-user-id="${escapeHtml(String(opts.userId))}"` : '';
-  el.innerHTML = `<div class="m-dot ${platform}"></div>`
+  // The message this one is answering, when the platform said so.
+  const replyAttr = opts.reply?.messageId
+    ? ` data-reply-id="${escapeHtml(String(opts.reply.messageId))}"` : '';
+  const colorAttr = authorColorStyle(opts.color);
+  const firstTag = opts.firstMessage
+    ? '<span class="first-tag" title="Their first ever message in this channel">FIRST MESSAGE</span>'
+    : '';
+
+  el.innerHTML = replyContextHtml(platform, opts.reply)
+    + `<div class="m-dot ${platform}"></div>`
     + `<span class="m-time">${ftime(opts.timestamp || null)}</span>`
-    + `<span class="m-author ${platform}" data-user="${escapeHtml(author)}" data-platform="${platform}"${userIdAttr}>`
+    + firstTag
+    + `<span class="m-author ${platform}"${colorAttr} data-user="${escapeHtml(author)}" data-platform="${platform}"${userIdAttr}${replyAttr}>`
     + `${opts.badgeHtml || ''}${badge}${escapeHtml(author)}</span>`
-    + `<span class="m-colon">:</span>`
-    + `<span class="m-body">${amount}${bodyHtml}</span>`;
+    + (opts.action ? '' : `<span class="m-colon">:</span>`)
+    + `<span class="m-body"${opts.action ? colorAttr : ''}>${amount}${bodyHtml}</span>`;
 
   queueFeedNode(el);
   S.msgCount++;
-
-  // Track recent chatters for @mention autocomplete (last 200 unique names)
-  const key = `${platform}:${authorLower}`;
-  if(!S.recentChatters.has(key)) {
-    S.recentChatters.set(key, { name: author, platform, time: Date.now() });
-    if(S.recentChatters.size > 200) {
-      S.recentChatters.delete(S.recentChatters.keys().next().value);
-    }
-  } else {
-    S.recentChatters.get(key).time = Date.now();
-  }
 
   updateMessageCount();
 
@@ -4156,6 +4738,141 @@ function addMsg(platform, author, text, opts = {}) {
 
   return el;
 }
+
+// ── Emote preview on hover ───────────────────────────────────────────────────
+//
+// Chat emotes are drawn small enough to read a line of text around, which is
+// right for reading and no use at all for "what is that". A pause over one
+// shows it at the largest size its provider offers, with its name and source.
+//
+// One delegated listener on the document, rather than a pair on every emote in
+// a feed of several hundred rows.
+
+/**
+ * The same emote at the largest size its provider offers.
+ *
+ * Every store holds the size the feed draws at, which is the right choice there
+ * and far too small blown up in a preview — a 28px image at 96px is a smear.
+ * Each provider spells its sizes into the url, so the bigger one is a
+ * substitution rather than another request to find out.
+ *
+ * Anything not recognised comes back untouched: a preview at the size we
+ * already have is worth more than a broken image, and providers add hosts
+ * without asking.
+ */
+function largerEmoteUrl(url) {
+  const value = String(url || '');
+  if(!value) return '';
+  // Twitch: .../<id>/default/dark/2.0
+  if(value.includes('static-cdn.jtvnw.net/emoticons')) return value.replace(/\/[0-9](?:\.0)?$/, '/3.0');
+  // 7TV: .../2x.webp, and whatever extension it was served as
+  if(value.includes('7tv.app') || value.includes('7tv.io')) return value.replace(/\/[1-4]x(\.[a-z0-9]+)$/i, '/4x$1');
+  // BTTV: .../emote/<id>/2x
+  if(value.includes('betterttv.net')) return value.replace(/\/[1-3]x$/, '/3x');
+  // FFZ: .../<id>/2, sometimes with an extension
+  if(value.includes('frankerfacez.com') || value.includes('cdn.ffz')) return value.replace(/\/[124](\.[a-z0-9]+)?$/i, '/4$1');
+  // Kick and YouTube already serve one size, and it is the big one.
+  return value;
+}
+
+// The emote a name belongs to, from whichever platform has one — the store
+// knows where it came from, which the img in the row does not.
+function findEmoteByName(name) {
+  if(!name) return null;
+  for(const platform of ALL_PLATFORMS) {
+    const hit = S.nativeEmotes[platform]?.[name] || S.thirdPartyEmotes[platform]?.[name];
+    if(hit?.url) return hit;
+  }
+  return null;
+}
+
+const EMOTE_PEEK_DELAY_MS = 600;
+let emotePeekTimer = null;
+let peekedEmoteEl = null;
+
+function hideEmotePeek() {
+  clearTimeout(emotePeekTimer);
+  emotePeekTimer = null;
+  peekedEmoteEl = null;
+  document.getElementById('emote-peek')?.classList.add('hidden');
+}
+
+// The emote under the pointer, whether it is a row in the feed, a cell in the
+// picker or a line of the autocomplete.
+function emoteImageAt(target) {
+  if(!target?.closest) return null;
+  return target.closest('.chat-emote, .emote-grid-item img, .ac-item img');
+}
+
+/**
+ * Puts the preview beside the emote. Above it by preference, below when there
+ * is no room above — the pointer is at the emote, so covering what is
+ * underneath is fine and covering the emote itself is not.
+ */
+function placeEmotePeek(anchor, peek) {
+  const at = anchor.getBoundingClientRect();
+  const own = peek.getBoundingClientRect();
+  const gap = 8;
+  let top = at.top - own.height - gap;
+  if(top < 4) top = at.bottom + gap;
+  top = Math.max(4, Math.min(top, window.innerHeight - own.height - 4));
+  let left = at.left + (at.width / 2) - (own.width / 2);
+  left = Math.max(4, Math.min(left, window.innerWidth - own.width - 4));
+  peek.style.left = `${Math.round(left)}px`;
+  peek.style.top  = `${Math.round(top)}px`;
+}
+
+function showEmotePeek(img) {
+  const peek = document.getElementById('emote-peek');
+  if(!peek) return;
+  const name = img.getAttribute('alt') || '';
+  if(!name) return;
+  const known = findEmoteByName(name);
+  const src = known?.url || img.getAttribute('src') || '';
+  if(!src) return;
+
+  const imgEl = document.getElementById('emote-peek-img');
+  imgEl.src = largerEmoteUrl(src);
+  imgEl.alt = name;
+  document.getElementById('emote-peek-name').textContent = name;
+
+  // A Twitch emote in a message arrives as an id and a position rather than by
+  // name, so it is drawn without ever being in a store and the lookup above
+  // finds nothing. The img still carries the source it was rendered with, which
+  // is less than the store would have said and better than saying nothing.
+  const from = document.getElementById('emote-peek-from');
+  from.textContent = known?.source || img.dataset.source || '';
+  from.classList.toggle('hidden', !from.textContent);
+
+  peek.classList.remove('hidden');
+  // Measured only once it is on screen, or it has no size to place by.
+  placeEmotePeek(img, peek);
+}
+
+document.addEventListener('mouseover', e => {
+  const img = emoteImageAt(e.target);
+  if(!img || img === peekedEmoteEl) return;
+  hideEmotePeek();
+  peekedEmoteEl = img;
+  emotePeekTimer = setTimeout(() => {
+    // Gone from under the pointer while we waited: a trimmed row, a re-rendered
+    // picker.
+    if(peekedEmoteEl !== img || !img.isConnected) { hideEmotePeek(); return; }
+    showEmotePeek(img);
+  }, EMOTE_PEEK_DELAY_MS);
+});
+
+document.addEventListener('mouseout', e => {
+  const img = emoteImageAt(e.target);
+  if(!img || img !== peekedEmoteEl) return;
+  // Moving within the same image is not leaving it.
+  if(e.relatedTarget && emoteImageAt(e.relatedTarget) === img) return;
+  hideEmotePeek();
+});
+
+// A feed that scrolls out from under the pointer, or a picker that closes,
+// leaves the preview pointing at nothing.
+document.getElementById('feed')?.addEventListener('scroll', hideEmotePeek, { passive: true });
 
 // ── Emote picker button ───────────────────────────────────────────────────────
 
@@ -4211,7 +4928,10 @@ function renderEmotePickerBody(query = '') {
     return `<div class="ac-header">${escapeHtml(source)} (${entries.length})</div>`
       + `<div style="display:flex;flex-wrap:wrap;gap:4px;padding:8px 10px;">`
       + shown.map(({ item, index }) =>
-          `<div class="emote-grid-item" data-index="${index}" title="${escapeHtml(item.name)}">`
+          // No `title`: the hover preview names it, at a size worth looking at,
+          // and the browser's tooltip appears on the same pause in the same
+          // place with less in it.
+          `<div class="emote-grid-item" data-index="${index}">`
           + `<img src="${escapeHtml(item.url)}" alt="${escapeHtml(item.name)}" loading="lazy">`
           + `</div>`
         ).join('')
@@ -4467,7 +5187,10 @@ function openUserMenu(e, el) {
   // user-controlled and must never be interpolated into code.
   const actions = [];
 
-  actions.push({ label: '↩ Reply', run: () => replyToUser(name) });
+  // The row the menu was opened from, so a reply can be threaded onto that
+  // message rather than only @mentioning the person who sent it.
+  const messageId = el.closest('.msg')?.dataset.msgId || '';
+  actions.push({ label: '↩ Reply', run: () => replyToUser(name, platform, messageId) });
   actions.push({ label: '👤 User details', run: () => showUserDetails(platform, name, userId || '') });
 
   // Moderation — only if authenticated AND the current user has mod/broadcaster rights
@@ -4531,11 +5254,34 @@ function closeUserMenu() {
   userMenuUserId = null;
 }
 
-function replyToUser(name) {
+/**
+ * Points the composer at somebody, and — on Twitch, which is the only platform
+ * here whose send API takes a parent — arms the next send to thread onto the
+ * message being answered rather than only naming its sender.
+ *
+ * The pending reply is dropped as soon as the composer no longer starts with
+ * that @mention, so a message typed after the user changed their mind is not
+ * silently threaded onto something unrelated.
+ */
+let pendingReply = null;
+
+function replyToUser(name, platform = '', messageId = '') {
   const input = document.getElementById('send-input');
   input.value = `@${name} `;
+  pendingReply = (platform === 'twitch' && messageId)
+    ? { platform, messageId, prefix: `@${name} ` }
+    : null;
   input.focus();
   input.setSelectionRange(input.value.length, input.value.length);
+}
+
+// The reply this send should thread onto, if the composer still looks like the
+// one the Reply action set up.
+function takePendingReply(platform, text) {
+  const pending = pendingReply;
+  if(!pending || pending.platform !== platform) return '';
+  if(!String(text).toLowerCase().startsWith(pending.prefix.toLowerCase())) return '';
+  return pending.messageId;
 }
 
 function formatDateTime(iso) {
@@ -4805,6 +5551,9 @@ function sendMsg() {
   input.value = '';
   closeAutocomplete();
   targets.forEach(p => sendToPlatform(p, text));
+  // One send, one thread. The next message is a new message unless the viewer
+  // asks to reply again.
+  pendingReply = null;
 }
 
 async function sendToPlatform(p, text) {
@@ -4815,6 +5564,7 @@ async function sendToPlatform(p, text) {
 async function sendTwitch(text) {
   // Twitch send-chat-message requires the broadcaster's user ID and the sender's user ID.
   // We fetch the sender's ID from the token, then the broadcaster's ID from their login name.
+  const replyToId = takePendingReply('twitch', text);
   const token = S.tokens.twitch;
   const clientId = extractClientId(CFG.twitch.url);
   const channel = S.channels.twitch;
@@ -4853,7 +5603,10 @@ async function sendTwitch(text) {
       body: JSON.stringify({
         broadcaster_id: S.twitchBroadcasterId,
         sender_id: S.twitchUserId,
-        message: text
+        message: text,
+        // Only ever present when there is a real parent: Twitch rejects an
+        // empty string here, so "no reply" has to be the field being absent.
+        ...(replyToId ? { reply_parent_message_id: replyToId } : {}),
       })
     });
 
@@ -5133,6 +5886,10 @@ window.__friendlyChat = {
   flushFeed, addMsg, addSys, addEvent, renderMessageBody, parseIrcLine,
   parseKickEmotePayload, allEmoteEntries, escapeHtml, trimFeed,
   highlightMentionTokens, expandTextRun, selfNames, joinAllPlatforms,
+  parseIrcAction, twitchReplyContext, kickReplyContext, parseTwitchEmoteMap,
+  authorColorStyle, renderLinkedText, largerEmoteUrl, rememberChatter,
+  chatterColor, formatKickEventSummary, twitchUserNoticeSummary,
+  renderTwitchBadges, replyToUser, takePendingReply, formatDuration,
   resolveYouTubeTarget, renderYouTubeMessage, applyYouTubeRemoval,
   loadSettings, saveSettings, applySettings,
   U, checkForUpdate, showUpdateBanner, hideUpdateBanner, startUpdateDownload,
