@@ -3,7 +3,7 @@
 A desktop app that merges live chat from Twitch, Kick and YouTube into one unified window. Built with Electron.
 
 ![Platform Support](https://img.shields.io/badge/platform-Windows%20%7C%20Mac%20%7C%20Linux-blue)
-![Version](https://img.shields.io/badge/version-1.4.1-green)
+![Version](https://img.shields.io/badge/version-1.5.0-green)
 
 ## What it does
 

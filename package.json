@@ -1,6 +1,6 @@
 {
   "name": "friendly-chat",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "description": "Multi-platform stream chat merger for Twitch, Kick and YouTube",
   "author": {
     "name": "JRBlaze"
